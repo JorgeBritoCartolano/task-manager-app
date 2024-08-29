@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskManager</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>TaskManager</h1>
+        <div id="task-list" class="task-list">
+            <!-- Load tasks -->
+        </div>
+        <button id="add-task-btn" class="add-task-btn">Add Task</button>
+    </div>
+
+    <!-- Add/Edit tasks -->
+    <div id="task-modal" class="modal">
+        <div class="modal-content">
+            <span id="close-modal" class="close">&times;</span>
+            <h2 id="modal-title">New Task</h2>
+            <form id="task-form">
+                <input type="hidden" id="task-id">
+                <label for="task-title">Title:</label>
+                <input type="text" id="task-title" required>
+                
+                <label for="task-status">Status:</label>
+                <select id="task-status">
+                    <option value="Pending">Pending</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                </select>
+                
+                <label for="task-description">Description:</label>
+                <textarea id="task-description"></textarea>
+                
+                <button type="submit" id="save-task-btn">Save</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

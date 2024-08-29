@@ -1,0 +1,324 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Template to deploy a simple task management application with AWS Lambda, DynamoDB, and API Gateway'
+
+Parameters:
+  BucketForLambdaCode:
+    Type: String
+    Default: <bucket-name-where-the-lambda-functions-code-is>
+  
+  GitHubRepository:
+    Type: String
+    Default: <your-github-repository>
+
+  GitHubTokenParameter:
+    Type: String
+    Default: <your-github-token>
+
+Resources:
+  # DynamoDB Table
+  TasksTable:
+    Type: 'AWS::DynamoDB::Table'
+    Properties: 
+      TableName: 'Tasks'
+      AttributeDefinitions:
+        - AttributeName: 'taskId'
+          AttributeType: 'S'
+      KeySchema:
+        - AttributeName: 'taskId'
+          KeyType: 'HASH'
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  # IAM Role for Lambda Functions
+  LambdaExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'LambdaExecutionRole'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service: 'lambda.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: 'DynamoDBAccessPolicy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action:
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:Scan'
+                Resource: !GetAtt TasksTable.Arn
+
+  # Lambda Function for CreateTask
+  CreateTaskFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: 'CreateTaskFunction'
+      Handler: 'create_task.lambda_handler'
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Sub ${BucketForLambdaCode}
+        S3Key: 'create_task.zip'
+      Runtime: 'python3.8'
+      Timeout: 15
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TasksTable
+
+  # Lambda Function for GetTasks
+  GetTasksFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: 'GetTasksFunction'
+      Handler: 'get_tasks.lambda_handler'
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Sub ${BucketForLambdaCode}
+        S3Key: 'get_tasks.zip'
+      Runtime: 'python3.8'
+      Timeout: 15
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TasksTable
+
+  # Lambda Function for UpdateTask
+  UpdateTaskFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: 'UpdateTaskFunction'
+      Handler: 'update_task.lambda_handler'
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Sub ${BucketForLambdaCode}
+        S3Key: 'update_task.zip'
+      Runtime: 'python3.8'
+      Timeout: 15
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TasksTable
+
+  # Lambda Function for DeleteTask
+  DeleteTaskFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: 'DeleteTaskFunction'
+      Handler: 'delete_task.lambda_handler'
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Sub ${BucketForLambdaCode}
+        S3Key: 'delete_task.zip'
+      Runtime: 'python3.8'
+      Timeout: 15
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TasksTable
+
+  # API Gateway
+  TaskApi:
+    Type: 'AWS::ApiGateway::RestApi'
+    Properties:
+      Name: 'TaskApi'
+      Description: 'API for managing tasks'
+  
+  # Root Resource
+  RootResource:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref TaskApi
+      ParentId: !GetAtt TaskApi.RootResourceId
+      PathPart: 'tasks'
+
+  # Task Resource with ID
+  TaskIdResource:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref TaskApi
+      ParentId: !Ref RootResource
+      PathPart: '{taskId}'
+  
+  # GET Method for GetTasks
+  GetTasksMethod:
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      RestApiId: !Ref TaskApi
+      ResourceId: !Ref RootResource
+      HttpMethod: 'GET'
+      AuthorizationType: 'NONE'
+      Integration:
+        IntegrationHttpMethod: 'POST'
+        Type: 'AWS_PROXY'
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetTasksFunction.Arn}/invocations'
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Headers: true
+  
+  # POST Method for CreateTask
+  CreateTaskMethod:
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      RestApiId: !Ref TaskApi
+      ResourceId: !Ref RootResource
+      HttpMethod: 'POST'
+      AuthorizationType: 'NONE'
+      Integration:
+        IntegrationHttpMethod: 'POST'
+        Type: 'AWS_PROXY'
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateTaskFunction.Arn}/invocations'
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Headers: true
+
+  # OPTIONS Method for root resource
+  OptionsMethodRootResource:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref RootResource
+      RestApiId: !Ref TaskApi
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'GET, POST, OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        RequestTemplates:
+          application/json: "{\"statusCode\": 200}"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Headers: true
+  
+  # PUT Method for UpdateTask
+  UpdateTaskMethod:
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      RestApiId: !Ref TaskApi
+      ResourceId: !Ref TaskIdResource
+      HttpMethod: 'PUT'
+      AuthorizationType: 'NONE'
+      Integration:
+        IntegrationHttpMethod: 'POST'
+        Type: 'AWS_PROXY'
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UpdateTaskFunction.Arn}/invocations'
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Headers: true
+  
+  # DELETE Method for DeleteTask
+  DeleteTaskMethod:
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      RestApiId: !Ref TaskApi
+      ResourceId: !Ref TaskIdResource
+      HttpMethod: 'DELETE'
+      AuthorizationType: 'NONE'
+      Integration:
+        IntegrationHttpMethod: 'POST'
+        Type: 'AWS_PROXY'
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteTaskFunction.Arn}/invocations'
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Headers: true
+
+  # OPTIONS Method for Task resource
+  OptionsMethodTasIdResource:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref TaskIdResource
+      RestApiId: !Ref TaskApi
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'PUT, DELETE, OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        RequestTemplates:
+          application/json: "{\"statusCode\": 200}"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Headers: true
+  
+  # Lambda Permissions for API Gateway
+  GetTasksLambdaPermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref GetTasksFunction
+      Principal: 'apigateway.amazonaws.com'
+
+  CreateTaskLambdaPermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref CreateTaskFunction
+      Principal: 'apigateway.amazonaws.com'
+  
+  UpdateTaskLambdaPermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref UpdateTaskFunction
+      Principal: 'apigateway.amazonaws.com'
+  
+  DeleteTaskLambdaPermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref DeleteTaskFunction
+      Principal: 'apigateway.amazonaws.com'
+  
+  # Deployment Stage
+  ApiDeployment:
+    Type: 'AWS::ApiGateway::Deployment'
+    DependsOn: 
+      - CreateTaskMethod
+      - GetTasksMethod
+      - UpdateTaskMethod
+      - DeleteTaskMethod
+    Properties:
+      RestApiId: !Ref TaskApi
+      StageName: 'dev'
+
+  # Front End 
+  AmplifyApp:
+      Type: AWS::Amplify::App
+      Properties:
+        Name: TaskManagerApp
+        Repository: !Sub ${GitHubRepository}
+        AccessToken: !Sub ${GitHubTokenParameter}
+
+Outputs:
+  ApiUrl:
+    Description: 'URL of the Task API'
+    Value: !Sub 'https://${TaskApi}.execute-api.${AWS::Region}.amazonaws.com/dev/tasks'
