@@ -27,24 +27,7 @@ The application is built on the following AWS services:
 
 The project is organized as follows:
 
-task-manager-app/
-│
-├── images/                     # Images of the application and AWS services used
-│
-├── src/
-│   ├── backend/                # Python files for AWS Lambda functions
-│   │   ├── create_task.py
-│   │   ├── get_tasks.py
-│   │   ├── update_task.py
-│   │   └── delete_task.py
-│   │
-│   └── frontend/               # Frontend files (HTML, CSS, JavaScript)
-│       ├── index.html
-│       ├── styles.css
-│       └── script.js
-│
-└── task-manager-cloudformation.yaml    # CloudFormation template for deploying the architecture
-
+![alt text](image.png)
 
 ## Application Flow
 
