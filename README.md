@@ -22,6 +22,7 @@ The application is built on the following AWS services:
 - **AWS Lambda**: Executes the backend logic for task management (CRUD operations).
 - **API Gateway**: Serves as the interface for the Lambda functions, enabling HTTP requests.
 - **AWS Amplify**: Hosts the front-end of the application.
+- **AWS IAM**: Creates the role used by Lambda functions to safely operate on the DynamoDB table, allowing actions such as `PutItem`, `GetItem`, `UpdateItem`, and `DeleteItem`.
 
 ## Project Structure
 
@@ -62,7 +63,7 @@ The project is organized as follows:
 3. **Update the Frontend Configuration**:
 	- Once the stack is deployed, go to the CloudFormation stack outputs and copy the API URL provided.
 	- Open the app.js file located in the src/frontend/ directory.
-	- Replace the value of the apiUrl variable with the API URL from the CloudFormation outputs. Example: const apiUrl = 'https://<your-api-url>/dev/tasks';
+	- Replace the value of the apiUrl variable with the API URL from the CloudFormation outputs. Example: const apiUrl = 'https://your-api-url/dev/tasks';
 
 4. **Push Changes to the Remote Repository**: After updating the apiUrl in app.js, commit and push the changes to your remote repository.
 
