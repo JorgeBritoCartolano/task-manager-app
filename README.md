@@ -27,7 +27,7 @@ The application is built on the following AWS services:
 
 The project is organized as follows:
 
-![alt text](image.png)
+![alt text](images/image-5.png)
 
 ## Application Flow
 
